@@ -1,0 +1,9 @@
+{
+  "projects": {
+    "default": "knureviewapp",
+    "firestore": "knureviewapp"
+  },
+  "targets": {},
+  "etags": {},
+  "dataconnectEmulatorConfig": {}
+}

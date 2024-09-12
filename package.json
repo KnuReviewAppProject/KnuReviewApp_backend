@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "express": "^5.0.0",
+    "firebase-admin": "^12.4.0",
+    "jsonwebtoken": "^9.0.2"
+  }
+}
