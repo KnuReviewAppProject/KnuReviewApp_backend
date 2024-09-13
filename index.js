@@ -31,7 +31,8 @@ const db = admin.firestore()
 const VERIFICATION_TIMEOUT = 3 * 60 * 1000 // 3분 시간 제한
 const JWT_SECRET = 'jwt_secret_0b0000_1111'
 
-app.post('/api/send-verification-code', async (req, res) => {
+// 이메일 중복 여부 판단 api
+app.post('/api/verify-email', async (req, res) => {
 	const { email } = req.body
 
 	if (!email) {
@@ -60,16 +61,32 @@ app.post('/api/send-verification-code', async (req, res) => {
 		timestamp: admin.firestore.FieldValue.serverTimestamp()
 	})
 
+	await admin
+    .firestore()
+    .collection("mail")
+    .add({
+      to: email,
+      message: {
+        subject: "강남미식회 회원가입 인증코드 입니다.",
+        html: `
+		강남미식회 회원가입 인증코드 입니다.
+
+		인증코드: ${verificationCode}
+		`,
+      },
+    });
+
 	// TODO: Email로 Verification code 전송
 	console.log(`Send verification code ${verificationCode} to ${email}`)
 
 	res.status(200).send({ token: customToken })
 })
 
-app.post('/api/verify-email', async (req, res) => {
-	const { email, verificationCode: vcode, token } = req.body
+// 인증코드 판단 api
+app.post('/api/very-code', async (req, res) => {
+	const { email, verificationCode: code, token } = req.body
 
-	if (!email || !vcode || !token) {
+	if (!email || !code || !token) {
 		return res.status(400).send('Invalid request')
 	}
 
@@ -104,7 +121,7 @@ app.post('/api/verify-email', async (req, res) => {
 		return res.status(401).send('Invalid token')
 	}
 
-	if (vcode != savedVerificationCode) {
+	if (code != savedVerificationCode) {
 		return res.status(401).send('Invalid verification code')
 	}
 
@@ -117,7 +134,7 @@ app.post('/api/verify-email', async (req, res) => {
 	res.status(200).send({ token })
 })
 
-// app.post('/api/register', async (req, res) => {})
+// 회원가입
 app.post('/api/register', async (req, res) => {
 	const {
 		email,
@@ -131,6 +148,11 @@ app.post('/api/register', async (req, res) => {
 
 	// business logic
 	res.status(200).send(user)
+})
+
+// 로그인
+app.post('/api/login', async (req, res) => {
+
 })
 
 app.listen(3000, () => {
