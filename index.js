@@ -1,67 +1,55 @@
-const express = require('express')
-const jwt = require('jsonwebtoken')
-const admin = require('firebase-admin')
+const express = require("express");
+const jwt = require("jsonwebtoken");
+const admin = require("firebase-admin");
 
-const app = express()
-app.use(express.json())
+const app = express();
+app.use(express.json());
 
-const serviceAccount = require('./knureviewapp-firebase-adminsdk-981au-22c73372a2.json')
+const serviceAccount = require("./knureviewapp-firebase-adminsdk-981au-22c73372a2.json");
 admin.initializeApp({
-	credential: admin.credential.cert(serviceAccount)
-})
+  credential: admin.credential.cert(serviceAccount),
+});
 
-// import { initializeApp } from "firebase/app";
-// import { getAnalytics } from "firebase/analytics";
-
-// const firebaseConfig = {
-//   apiKey: "AIzaSyAT8JtX4FMVOY37U9Bo12H5X7WNPLyfGjU",
-//   authDomain: "knureviewapp.firebaseapp.com",
-//   projectId: "knureviewapp",
-//   storageBucket: "knureviewapp.appspot.com",
-//   messagingSenderId: "857847580323",
-//   appId: "1:857847580323:web:ad13df58f9a00515b42116",
-//   measurementId: "G-QHNEXJ0BVT"
-// };
-
-// // Initialize Firebase
-// const app = initializeApp(firebaseConfig);
-// const analytics = getAnalytics(app);
-
-const db = admin.firestore()
-const VERIFICATION_TIMEOUT = 3 * 60 * 1000 // 3분 시간 제한
-const JWT_SECRET = 'jwt_secret_0b0000_1111'
+const db = admin.firestore();
+const VERIFICATION_TIMEOUT = 5 * 60 * 1000; // 5분 시간 제한
+const JWT_SECRET = "jwt_secret_0b0000_1111";
 
 // 이메일 중복 여부 판단 api
-app.post('/api/verify-email', async (req, res) => {
-	const { email } = req.body
+app.post("/api/verify-email", async (req, res) => {
+  const { email } = req.body;
 
-	if (!email) {
-		return res.status(400).send('Invalid request')
-	}
+  if (!email) {
+    return res.status(400).send("Invalid request");
+  }
 
-	const user = await admin.auth().getUserByEmail(email).catch(err => null)
+  const user = await admin
+    .auth()
+    .getUserByEmail(email)
+    .catch((err) => null);
 
-	if (user) {
-		return res.status(409).send('Email already exists')
-	}
+  if (user) {
+    return res.status(409).send("Email already exists");
+  }
 
-	// const token = await admin.auth().createCustomToken(email)
-	const customToken = jwt.sign({ email }, JWT_SECRET, { expiresIn: '1h' })
-	const verificationCode = Math.floor(Math.random() * 1000000).toString().padStart(6, '0')
-	const verificationDoc = db.collection('verifications').doc(email)
-	const existingVerification = await verificationDoc.get()
+  // const token = await admin.auth().createCustomToken(email)
+  const customToken = jwt.sign({ email }, JWT_SECRET, { expiresIn: "1h" });
+  const verificationCode = Math.floor(Math.random() * 1000000)
+    .toString()
+    .padStart(6, "0");
+  const verificationDoc = db.collection("verifications").doc(email);
+  const existingVerification = await verificationDoc.get();
 
-	if (existingVerification.exists) {
-		await verificationDoc.delete()
-	}
+  if (existingVerification.exists) {
+    await verificationDoc.delete();
+  }
 
-	await verificationDoc.set({
-		verificationCode,
-		token: customToken,
-		timestamp: admin.firestore.FieldValue.serverTimestamp()
-	})
+  await verificationDoc.set({
+    verificationCode,
+    token: customToken,
+    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+  });
 
-	await admin
+  await admin
     .firestore()
     .collection("mail")
     .add({
@@ -69,92 +57,115 @@ app.post('/api/verify-email', async (req, res) => {
       message: {
         subject: "강남미식회 회원가입 인증코드 입니다.",
         html: `
-		강남미식회 회원가입 인증코드 입니다.
-
+		<h1>강남미식회</h1></br></br></br>
+		회원가입 인증코드 입니다.</br></br>
 		인증코드: ${verificationCode}
 		`,
       },
     });
 
-	// TODO: Email로 Verification code 전송
-	console.log(`Send verification code ${verificationCode} to ${email}`)
+  // TODO: Email로 Verification code 전송
+  console.log(`Send verification code ${verificationCode} to ${email}`);
 
-	res.status(200).send({ token: customToken })
-})
+  res.status(200).send({ token: customToken });
+});
 
 // 인증코드 판단 api
-app.post('/api/very-code', async (req, res) => {
-	const { email, verificationCode: code, token } = req.body
+app.post("/api/verify-code", async (req, res) => {
+  const { email, code, token } = req.body;
 
-	if (!email || !code || !token) {
-		return res.status(400).send('Invalid request')
-	}
+  if (!email || !code || !token) {
+    return res.status(400).send("Invalid request");
+  }
 
-	// const decodedToken = await admin.auth().verifyIdToken(jwt).catch(err => null)
+  // Firestore에서 이메일로 인증 코드와 JWT 조회
+  const verificationPrm = db.collection("verifications").doc(email);
+  const verificationDoc = await verificationPrm.get();
 
-	// if (!decodedToken || decodedToken.email != email) {
-	// 	return res.status(401).send('Invalid token')
-	// }
+  if (!verificationDoc.exists) {
+    return res.status(404).send("Verification code not found");
+  }
 
-	// Firestore에서 이메일로 인증 코드와 JWT 조회
-	const verificationPrm = db.collection('verifications').doc(email)
-	const verificationDoc = await verificationPrm.get()
+  const savedData = verificationDoc.data();
+  const savedVerificationCode = savedData.verificationCode;
+  const savedToken = savedData.token;
+  const timestamp = savedData.timestamp.toMillis(); // Firestore의 Timestamp 객체를 밀리초로 변환
 
-	if (!verificationDoc.exists) {
-		return res.status(404).send('Verification code not found')
-	}
+  const currentTime = Date.now();
+  if (currentTime - timestamp > VERIFICATION_TIMEOUT) {
+    // 인증 코드가 5분을 초과했으면 만료 처리
+    await verificationDoc.ref.delete();
+    return res.status(410).send("Verification code expired");
+  }
 
-	const savedData = verificationDoc.data()
-	const savedVerificationCode = savedData.verificationCode
-	const savedToken = savedData.token
-	const timestamp = savedData.timestamp.toMillis() // Firestore의 Timestamp 객체를 밀리초로 변환
+  // 제출된 JWT와 Firestore에 저장된 JWT 비교
+  if (token != savedToken) {
+    return res.status(401).send("Invalid token");
+  }
 
-	const currentTime = Date.now()
-	if (currentTime - timestamp > VERIFICATION_TIMEOUT) {
-		// 인증 코드가 3분을 초과했으면 만료 처리
-		await verificationDoc.ref.delete()
-		return res.status(410).send('Verification code expired')
-	}
+  if (code != savedVerificationCode) {
+    return res.status(401).send("Invalid verification code");
+  }
 
-	// 제출된 JWT와 Firestore에 저장된 JWT 비교
-	if (token != savedToken) {
-		return res.status(401).send('Invalid token')
-	}
+  // 인증이 완료되면 Firestore에서 인증 데이터를 삭제
+  await verificationDoc.ref.delete();
 
-	if (code != savedVerificationCode) {
-		return res.status(401).send('Invalid verification code')
-	}
+  res.status(200).send({ token });
+});
 
-	// // 인증이 완료되면 Firestore에서 인증 데이터를 삭제
-	await verificationDoc.ref.delete()
+// 닉네임 중복 여부 판단 api
+app.post("/api/verify-nickname", async (req, res) => {
+  const { nickname, token } = req.body;
 
-	// 새로운 JWT 생성
-	// const token = await admin.auth().createCustomToken(email)
+  if (!nickname || !token) {
+    return res.status(400).send("Invalid request");
+  }
 
-	res.status(200).send({ token })
-})
+  const userDoc = db.collection("users");
+  const nicknameQuery = await userDoc.where("nickname", "==", nickname).get();
 
-// 회원가입
-app.post('/api/register', async (req, res) => {
-	const {
-		email,
-		password,
-		displayName,
-		photoURL,
-		phoneNumber,
-		uid,
-		token
-	} = req.body
+  if (!nicknameQuery.empty) {
+    return res.status(409).send("NickName already exists");
+  }
 
-	// business logic
-	res.status(200).send(user)
-})
+  res.sendStatus(200);
+});
 
-// 로그인
-app.post('/api/login', async (req, res) => {
+// 회원가입 api
+app.post("/api/register", async (req, res) => {
+  const { email, password, nickname, token } = req.body;
 
-})
+  if (!email || !password || !nickname || !token) {
+    return res.status(400).send("Invalid request");
+  }
+
+  const account = await admin
+    .auth()
+    .getUserByEmail(email)
+    .catch((err) => null);
+
+  if (account) {
+    return res.status(409).send("Email already exists");
+  }
+
+  const user = await admin.auth().createUser({
+    email: email,
+    password: password,
+    displayName: nickname,
+  });
+
+  await db.collection("users").doc(email).set({
+    nickname: nickname,
+    photoURL: null,
+  });
+
+  // business logic
+  res.status(200).send(user);
+});
+
+// 로그인 api
+app.post("/api/login", async (req, res) => {});
 
 app.listen(3000, () => {
-	console.log('Server is running on port 3000')
-})
+  console.log("Server is running on port 3000");
+});
