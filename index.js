@@ -164,7 +164,23 @@ app.post("/api/register", async (req, res) => {
 });
 
 // 로그인 api
-app.post("/api/login", async (req, res) => {});
+app.post("/api/login", async (req, res) => {
+  const { email, password } = req.body;
+
+  console.log(email, password);
+
+  if (!email || !password) {
+    return res.status(400).send("Invalid request");
+  }
+
+  // const userRecord = await admin.auth().getUserByEmail(email);
+  // const userData = userDoc.data();
+  // res.status(200).send({
+  //   email: userRecord.email,
+  //   nickname: userData.nickname,
+  //   photoURL: userData.photoURL,
+  // });
+});
 
 app.listen(3000, () => {
   console.log("Server is running on port 3000");
