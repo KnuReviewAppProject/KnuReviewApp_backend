@@ -165,21 +165,29 @@ app.post("/api/register", async (req, res) => {
 
 // 로그인 api
 app.post("/api/login", async (req, res) => {
-  const { email, password } = req.body;
+  const { uid } = req.body;
 
-  console.log(email, password);
-
-  if (!email || !password) {
+  if (!uid) {
     return res.status(400).send("Invalid request");
   }
 
-  // const userRecord = await admin.auth().getUserByEmail(email);
-  // const userData = userDoc.data();
-  // res.status(200).send({
-  //   email: userRecord.email,
-  //   nickname: userData.nickname,
-  //   photoURL: userData.photoURL,
-  // });
+  const user = await admin.auth().getUser(uid)
+
+  if (!user) {
+    return res.status(401).send("User not found");
+  }
+
+  const idToken = await admin.auth().createCustomToken(uid);
+  const email = user.email;
+  const nickname = user.displayName;
+  const photoURL = user.photoURL;
+
+  res.status(200).send({
+    accessToken: idToken,
+    email: email,
+    nickname: nickname,
+    photoURL: photoURL,
+  });
 });
 
 app.listen(3000, () => {
