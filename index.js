@@ -1,6 +1,7 @@
 const express = require("express");
 const jwt = require("jsonwebtoken");
 const admin = require("firebase-admin");
+const { searchBusiness } = require("./common");
 
 const app = express();
 app.use(express.json());
@@ -171,7 +172,7 @@ app.post("/api/login", async (req, res) => {
     return res.status(400).send("Invalid request");
   }
 
-  const user = await admin.auth().getUser(uid)
+  const user = await admin.auth().getUser(uid);
 
   if (!user) {
     return res.status(401).send("User not found");
@@ -188,6 +189,17 @@ app.post("/api/login", async (req, res) => {
     nickname: nickname,
     photoURL: photoURL,
   });
+});
+
+// '강남대학교 맛집' 키워드 크롤링 api
+app.get("/api/getRestaurants", async (req, res) => {
+  const result = await searchBusiness();
+
+  if (result && result.items) {
+    res.status(200).json({ results: result.items });
+  } else {
+    res.status(404).json({ error: "No results found" });
+  }
 });
 
 app.listen(3000, () => {
