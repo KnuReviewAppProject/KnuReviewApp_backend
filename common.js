@@ -101,7 +101,6 @@ const axios = require("axios");
 //   }
 // }
 
-
 async function searchBusiness() {
   const query = "강남대학교 맛집";
   const businessType = "restaurant";
@@ -217,4 +216,50 @@ async function searchBusiness() {
   }
 }
 
-module.exports = { searchBusiness };
+function categorizeRestaurant(type) {
+  if (type.includes("육류") || type.includes("고기") || type.includes("한식")) {
+    return "한식";
+  } else if (
+    type.includes("초밥") ||
+    type.includes("일식") ||
+    type.includes("오마카세")
+  ) {
+    return "일식";
+  } else if (type.includes("중식")) {
+    return "중식";
+  } else if (
+    type.includes("떡볶이") ||
+    type.includes("김밥") ||
+    type.includes("분식")
+  ) {
+    return "분식";
+  } else if (
+    type.includes("피자") ||
+    type.includes("햄버거") ||
+    type.includes("브런치") ||
+    type.includes("양식")
+  ) {
+    return "양식";
+  } else if (
+    type.includes("카페") ||
+    type.includes("디저트") ||
+    type.includes("베이커리")
+  ) {
+    return "카페/디저트";
+  } else if (
+    type.includes("생선") ||
+    type.includes("해물") ||
+    type.includes("장어") ||
+    type.includes("매운탕")
+  ) {
+    return "해물/생선 요리";
+  } else if (type.includes("치킨") || type.includes("닭강정")) {
+    return "치킨";
+  } else if (type.includes("양꼬치")) {
+    return "양꼬치/중화";
+  } else {
+    return "기타";
+  }
+}
+
+module.exports = { searchBusiness, categorizeRestaurant };

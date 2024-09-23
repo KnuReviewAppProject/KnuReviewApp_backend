@@ -193,24 +193,6 @@ app.post("/api/login", async (req, res) => {
 
 // '강남대학교 맛집' 키워드 크롤링 api
 app.get("/api/getRestaurants", async (req, res) => {
-
-    // if (result && result.items) {
-  //   const filteredData = result.items.map((item) => ({
-  //     id: item.id,
-  //     name: item.name,
-  //     category: item.category,
-  //     roadAddress: item.roadAddress,
-  //     address: item.address,
-  //     phone: item.phone || item.virtualPhone, // phone이나 virtualPhone 중 존재하는 값
-  //     x: item.x,
-  //     y: item.y,
-  //     imageUrl: item.imageUrl,
-  //     description: item.description,
-  //     options: item.options,
-  //     businessHours: item.businessHours,
-  //   }));
-  // }
-
   const results = await searchBusiness();
   if (results) {
     const filteredData = results.map((item) => ({
@@ -227,13 +209,27 @@ app.get("/api/getRestaurants", async (req, res) => {
       options: item.options,
       businessHours: item.businessHours,
     }));
-
     res.status(200).send({ results: filteredData });
-  }
-  else {
+  } else {
     res.status(404).json({ error: "No results found" });
   }
 });
+// const categoryType = categorizeRestaurant(item.category);
+// return {
+//   id: item.id,
+//   name: item.name,
+//   category: item.category,
+//   roadAddress: item.roadAddress,
+//   address: item.address,
+//   phone: item.phone || item.virtualPhone, // phone이나 virtualPhone이 있는지 확인
+//   x: item.x,
+//   y: item.y,
+//   imageUrl: item.imageUrl,
+//   description: item.description,
+//   options: item.options,
+//   businessHours: item.businessHours,
+//   categorizedType: categoryType, // 추가된 카테고리 정보
+// };
 
 app.listen(3000, () => {
   console.log("Server is running on port 3000");
