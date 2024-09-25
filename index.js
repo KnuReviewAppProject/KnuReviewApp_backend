@@ -192,14 +192,24 @@ app.post("/api/login", async (req, res) => {
 });
 
 app.post("/api/delete-account", async (req, res) => {
-  const { uid } = req.body;
+  const { uid, email } = req.body;
 
-  if (!uid) {
+  if (!uid || !email) {
     return res.status(400).send("Invalid request");
   }
-
+  
   await admin.auth().deleteUser(uid);
-  res.sendStatus(200);
+
+  const userDocRef = db.collection("users").doc(email);
+  const userDoc = await userDocRef.get();
+  
+  if(userDoc.exists){
+    await userDocRef.delete();
+    res.sendStatus(200);
+  }
+  else{
+    res.status(401).send("User not found");
+  }
 });
 
 // '강남대학교 맛집' 키워드 크롤링 api
