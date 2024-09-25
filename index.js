@@ -179,36 +179,66 @@ app.post("/api/login", async (req, res) => {
   }
 
   const idToken = await admin.auth().createCustomToken(uid);
+  const user_uid = user.uid;
   const email = user.email;
   const nickname = user.displayName;
   const photoURL = user.photoURL;
 
   res.status(200).send({
     accessToken: idToken,
+    uid: user_uid,
     email: email,
     nickname: nickname,
     photoURL: photoURL,
   });
 });
 
+// 회원탈퇴 api
 app.post("/api/delete-account", async (req, res) => {
   const { uid, email } = req.body;
 
   if (!uid || !email) {
     return res.status(400).send("Invalid request");
   }
-  
+
   await admin.auth().deleteUser(uid);
 
   const userDocRef = db.collection("users").doc(email);
   const userDoc = await userDocRef.get();
-  
-  if(userDoc.exists){
+
+  if (userDoc.exists) {
     await userDocRef.delete();
     res.sendStatus(200);
-  }
-  else{
+  } else {
     res.status(401).send("User not found");
+  }
+});
+
+// 프로필 수정 api
+app.post("/api/edit-profile", async (req, res) => {
+  const { uid, email, nickname, password } = req.body;
+
+  if (!uid | !email | !nickname || !password) {
+    return res.status(400).send("Invalid request");
+  }
+
+  try {
+    if (nickname) {
+      const userDocRef = db.collection("users").doc(email);
+
+      await userDocRef.update({ nickname: nickname });
+    }
+
+    if (password) {
+      await admin.auth().updateUser(uid, {
+        displayName: nickname,
+        password: password,
+      });
+    }
+
+    res.status(200).send("Profile updated successfully");
+  } catch (error) {
+    res.status(500).send("Failed to update profile");
   }
 });
 
