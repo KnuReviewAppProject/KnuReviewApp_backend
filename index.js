@@ -182,7 +182,10 @@ app.post("/api/login", async (req, res) => {
   const user_uid = user.uid;
   const email = user.email;
   const nickname = user.displayName;
-  const photoURL = user.photoURL;
+  const photoURL =
+    user.photoURL !== undefined && user.photoURL !== null
+      ? user.photoURL
+      : null; // 정확한 null 처리
 
   res.status(200).send({
     accessToken: idToken,
@@ -240,6 +243,11 @@ app.post("/api/edit-profile", async (req, res) => {
   } catch (error) {
     res.status(500).send("Failed to update profile");
   }
+});
+
+// 프로필 이미지 수정 api
+app.post("/api/edit-profile-image", async (req, res) => {
+
 });
 
 // '강남대학교 맛집' 키워드 크롤링 api
