@@ -7,6 +7,7 @@ const app = express();
 app.use(express.json());
 
 const serviceAccount = require("./knureviewapp-firebase-adminsdk-981au-22c73372a2.json");
+const { getStorage } = require("firebase-admin/storage");
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
@@ -221,14 +222,13 @@ app.post("/api/delete-account", async (req, res) => {
 app.post("/api/edit-profile", async (req, res) => {
   const { uid, email, nickname, password } = req.body;
 
-  if (!uid | !email | !nickname || !password) {
+  if (!uid || !email) {
     return res.status(400).send("Invalid request");
   }
 
   try {
     if (nickname) {
       const userDocRef = db.collection("users").doc(email);
-
       await userDocRef.update({ nickname: nickname });
     }
 
@@ -247,8 +247,29 @@ app.post("/api/edit-profile", async (req, res) => {
 
 // 프로필 이미지 수정 api
 app.post("/api/edit-profile-image", async (req, res) => {
+  const {uid, email, imageURL} = req.body;
 
-});
+  if(!uid || !email){
+    return res.status(400).send("Invalid request");
+  }
+
+  if(!imageURL){
+    return res.status(404).send("imageURL is not exist");
+  }
+
+  try {
+    const userDocRef = db.collection("users").doc(email);
+    admin.auth().updateUser(uid, {
+      photoURL: imageURL,
+    }).then(async () => {
+      await userDocRef.update({ photoURL: imageURL });
+    })
+
+    res.status(200).send("Profile updated successfully");
+  } catch (error) {
+    res.status(500).send("Failed to update profile");
+  }
+})
 
 // '강남대학교 맛집' 키워드 크롤링 api
 app.get("/api/getRestaurants", async (req, res) => {
