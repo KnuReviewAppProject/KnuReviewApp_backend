@@ -247,29 +247,46 @@ app.post("/api/edit-profile", async (req, res) => {
 
 // 프로필 이미지 수정 api
 app.post("/api/edit-profile-image", async (req, res) => {
-  const {uid, email, imageURL} = req.body;
+  const { uid, email, imageURL } = req.body;
 
-  if(!uid || !email){
+  if (!uid || !email) {
     return res.status(400).send("Invalid request");
   }
 
-  if(!imageURL){
-    return res.status(404).send("imageURL is not exist");
-  }
+  // if(!imageURL){
+  //   return res.status(404).send("imageURL is not exist");
+  // }
 
   try {
-    const userDocRef = db.collection("users").doc(email);
-    admin.auth().updateUser(uid, {
-      photoURL: imageURL,
-    }).then(async () => {
-      await userDocRef.update({ photoURL: imageURL });
-    })
+    if (imageURL == null) {
+      const userDocRef = db.collection("users").doc(email);
+      admin
+        .auth()
+        .updateUser(uid, {
+          photoURL: imageURL,
+        })
+        .then(async () => {
+          await userDocRef.update({ photoURL: imageURL });
+        });
 
-    res.status(200).send("Profile updated successfully");
+      res.status(200).send("Profile updated successfully");
+    } else {
+      const userDocRef = db.collection("users").doc(email);
+      admin
+        .auth()
+        .updateUser(uid, {
+          photoURL: imageURL,
+        })
+        .then(async () => {
+          await userDocRef.update({ photoURL: imageURL });
+        });
+
+      res.status(200).send("Profile updated successfully");
+    }
   } catch (error) {
     res.status(500).send("Failed to update profile");
   }
-})
+});
 
 // '강남대학교 맛집' 키워드 크롤링 api
 app.get("/api/getRestaurants", async (req, res) => {
