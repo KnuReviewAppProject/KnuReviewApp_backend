@@ -312,6 +312,78 @@ app.get("/api/getRestaurants", async (req, res) => {
   }
 });
 
+// 리뷰 작성 api
+app.post("/api/create-review", async (req, res) => {
+  const {
+    email,
+    name,
+    category,
+    addressName,
+    location,
+    rating,
+    content,
+    images,
+    recommend,
+  } = req.body;
+
+  if (!email) {
+    res.status(400).send("Invalid request");
+  }
+
+  if (!rating || !content || !recommend) {
+    res
+      .status(404)
+      .send("Missing required fields: rating, content, and recommendation.");
+  }
+
+  try {
+    const review = {
+      email,
+      name,
+      category,
+      addressName,
+      location,
+      rating,
+      content,
+      images,
+      recommend,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    db.collection("reviews")
+      .add(review)
+      .then(() => {
+        res.status(200).json({ message: "Review created successfully" });
+      })
+      .catch((err) => `try 에러: ${err}`);
+  } catch (error) {
+    res.status(500).send("Failed to create review");
+  }
+});
+
+// 리뷰 읽기 api
+app.get("/api/get-reviews", async (req, res) => {
+  try {
+    const reviewDocs = await db.collection("reviews").get();
+    
+    if (reviewDocs.empty) {
+      return res.status(404).send("Review not found");
+    }
+
+    const reviews = [];
+    reviewDocs.forEach((doc) => {
+      reviews.push({
+        id: doc.id, // 문서 ID를 포함시키는 것이 좋음
+        ...doc.data() // 문서의 데이터를 스프레드로 추가
+      });
+    });
+
+    res.status(200).send(reviews);
+  } catch (error) {
+    res.status(500).send("Failed to get reviews");
+  }
+});
+
 app.listen(3000, () => {
   console.log("Server is running on port 3000");
 });
