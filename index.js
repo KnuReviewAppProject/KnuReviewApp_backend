@@ -1,7 +1,7 @@
 const express = require("express");
 const jwt = require("jsonwebtoken");
 const admin = require("firebase-admin");
-const { searchBusiness } = require("./common");
+const { searchBusiness, categorizeRestaurant } = require("./common");
 
 const app = express();
 app.use(express.json());
@@ -296,9 +296,10 @@ app.get("/api/getRestaurants", async (req, res) => {
       id: item.id,
       name: item.name,
       category: item.category,
+      type: categorizeRestaurant(item.category),
       roadAddress: item.roadAddress,
       address: item.address,
-      phone: item.phone || item.virtualPhone, // phone이나 virtualPhone이 있는지 확인
+      phone: item.phone || item.virtualPhone, 
       x: item.x,
       y: item.y,
       imageUrl: item.imageUrl,
@@ -347,7 +348,7 @@ app.post("/api/create-review", async (req, res) => {
       content,
       images,
       recommend,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
     };
 
     db.collection("reviews")
@@ -371,13 +372,25 @@ app.get("/api/get-reviews", async (req, res) => {
     }
 
     const reviews = [];
-    reviewDocs.forEach((doc) => {
-      reviews.push({
-        id: doc.id, // 문서 ID를 포함시키는 것이 좋음
-        ...doc.data() // 문서의 데이터를 스프레드로 추가
-      });
-    });
 
+    for (const doc of reviewDocs.docs) {
+      const reviewData = doc.data();
+      const userEmail = reviewData.email;  // review에 userEmail 필드가 있다고 가정
+
+      // users 컬렉션에서 해당 userEmail의 유저 정보 가져오기
+      const userDoc = await db.collection("users").doc(userEmail).get();
+      let userData = {};
+      if (userDoc.exists) {
+        userData = userDoc.data(); // nickname과 photoURL 정보를 가져옴
+      }
+
+      reviews.push({
+        id: doc.id, // 리뷰 문서 ID
+        nickname: userData.nickname, // 사용자 닉네임
+        photoURL: userData.photoURL, // 사용자 프로필 사진
+        ...reviewData, // 리뷰의 나머지 데이터
+      });
+    }
     res.status(200).send(reviews);
   } catch (error) {
     res.status(500).send("Failed to get reviews");
