@@ -375,10 +375,10 @@ app.get("/api/get-reviews", async (req, res) => {
 
     for (const doc of reviewDocs.docs) {
       const reviewData = doc.data();
-      const userEmail = reviewData.email;  // review에 userEmail 필드가 있다고 가정
+      const email = reviewData.email;  // review에 email 필드가 있다고 가정
 
-      // users 컬렉션에서 해당 userEmail의 유저 정보 가져오기
-      const userDoc = await db.collection("users").doc(userEmail).get();
+      // users 컬렉션에서 해당 email 유저 정보 가져오기
+      const userDoc = await db.collection("users").doc(email).get();
       let userData = {};
       if (userDoc.exists) {
         userData = userDoc.data(); // nickname과 photoURL 정보를 가져옴
@@ -393,6 +393,7 @@ app.get("/api/get-reviews", async (req, res) => {
     }
     res.status(200).send(reviews);
   } catch (error) {
+    console.log(`Error: ${error}`);
     res.status(500).send("Failed to get reviews");
   }
 });
