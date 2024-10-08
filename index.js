@@ -299,7 +299,7 @@ app.get("/api/getRestaurants", async (req, res) => {
       type: categorizeRestaurant(item.category),
       roadAddress: item.roadAddress,
       address: item.address,
-      phone: item.phone || item.virtualPhone, 
+      phone: item.phone || item.virtualPhone,
       x: item.x,
       y: item.y,
       imageUrl: item.imageUrl,
@@ -348,7 +348,7 @@ app.post("/api/create-review", async (req, res) => {
       content,
       images,
       recommend,
-      createdAt: admin.firestore.FieldValue.serverTimestamp()
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
     };
 
     db.collection("reviews")
@@ -366,7 +366,7 @@ app.post("/api/create-review", async (req, res) => {
 app.get("/api/get-reviews", async (req, res) => {
   try {
     const reviewDocs = await db.collection("reviews").get();
-    
+
     if (reviewDocs.empty) {
       return res.status(404).send("Review not found");
     }
@@ -375,7 +375,7 @@ app.get("/api/get-reviews", async (req, res) => {
 
     for (const doc of reviewDocs.docs) {
       const reviewData = doc.data();
-      const email = reviewData.email;  // review에 email 필드가 있다고 가정
+      const email = reviewData.email; // review에 email 필드가 있다고 가정
 
       // users 컬렉션에서 해당 email 유저 정보 가져오기
       const userDoc = await db.collection("users").doc(email).get();
@@ -395,6 +395,51 @@ app.get("/api/get-reviews", async (req, res) => {
   } catch (error) {
     console.log(`Error: ${error}`);
     res.status(500).send("Failed to get reviews");
+  }
+});
+
+// 내가 쓴 리뷰 읽기 api
+app.get("/api/my-reviews", async (req, res) => {
+  const email = req.query.email; // 또는 req.user.email로 가져올 수 있습니다 (인증 미들웨어 사용 시)
+  
+  if (!email) {
+    res.status(400).send("Invalid request");
+  }
+
+  try {
+    // reviews 컬렉션에서 해당 이메일로 작성된 리뷰만 조회
+    const reviewDocs = await db
+      .collection("reviews")
+      .where("email", "==", email)
+      .get();
+
+    if (reviewDocs.empty) {
+      return res.status(404).send("No reviews found for the user");
+    }
+
+    const myUserReviews = [];
+    for (const doc of reviewDocs.docs) {
+      const reviewData = doc.data();
+
+      // 해당 사용자의 추가 정보를 가져오기 위해 users 컬렉션에서 조회
+      const userDoc = await db.collection("users").doc(email).get();
+      let userData = {};
+      if (userDoc.exists) {
+        userData = userDoc.data();
+      }
+
+      myUserReviews.push({
+        id: doc.id, // 리뷰 문서 ID
+        nickname: userData.nickname, // 사용자 닉네임
+        photoURL: userData.photoURL, // 사용자 프로필 사진
+        ...reviewData, // 리뷰의 나머지 데이터
+      });
+    }
+
+    res.status(200).send(myUserReviews);
+  } catch (error) {
+    console.error("Error getting user reviews:", error);
+    res.status(500).send("Failed to get user reviews");
   }
 });
 
