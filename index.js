@@ -317,6 +317,7 @@ app.get("/api/getRestaurants", async (req, res) => {
 app.post("/api/create-review", async (req, res) => {
   const {
     email,
+    uid,
     name,
     category,
     addressName,
@@ -327,7 +328,7 @@ app.post("/api/create-review", async (req, res) => {
     recommend,
   } = req.body;
 
-  if (!email) {
+  if (!email || !uid) {
     res.status(400).send("Invalid request");
   }
 
@@ -340,6 +341,7 @@ app.post("/api/create-review", async (req, res) => {
   try {
     const review = {
       email,
+      uid,
       name,
       category,
       addressName,
@@ -399,9 +401,9 @@ app.get("/api/get-reviews", async (req, res) => {
 });
 
 // 내가 쓴 리뷰 읽기 api
-app.get("/api/my-reviews", async (req, res) => {
+app.get("/api/get-myreviews", async (req, res) => {
   const email = req.query.email; // 또는 req.user.email로 가져올 수 있습니다 (인증 미들웨어 사용 시)
-  
+
   if (!email) {
     res.status(400).send("Invalid request");
   }
@@ -441,6 +443,38 @@ app.get("/api/my-reviews", async (req, res) => {
     console.error("Error getting user reviews:", error);
     res.status(500).send("Failed to get user reviews");
   }
+});
+
+// 리뷰 삭제 API
+app.delete("/api/delete-review", async (req, res) => {
+  const { uid } = req.body; 
+
+  if(!uid){
+    res.status(400).send("Invalid request");
+  }
+
+  try {
+    const reviewQuerySnapshot = await db
+      .collection("reviews")
+      .where("uid", "==", uid)
+      .get();
+
+    if (reviewQuerySnapshot.empty) {
+      return res.status(404).json({ message: "리뷰를 찾을 수 없습니다." });
+    }
+
+    // 문서 삭제 처리 (리뷰가 여러 개일 경우 첫 번째 문서만 삭제)
+    const batch = db.batch();
+    reviewQuerySnapshot.forEach(doc => {
+      batch.delete(doc.ref);  // 문서 삭제
+    });
+
+    await batch.commit();  // Firestore에 일괄 삭제 요청
+    return res.status(200);
+  } catch (error) {
+    res.status(500);
+  }
+
 });
 
 app.listen(3000, () => {
