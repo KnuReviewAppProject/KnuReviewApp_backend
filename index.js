@@ -353,12 +353,16 @@ app.post("/api/create-review", async (req, res) => {
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     };
 
-    db.collection("reviews")
+    // Firestore에 리뷰 추가
+    const reviewRef = await db
+      .collection("reviews")
       .add(review)
-      .then(() => {
-        res.status(200).json({ message: "Review created successfully" });
-      })
       .catch((err) => `try 에러: ${err}`);
+
+    // 생성된 리뷰 ID 반환
+    res
+      .status(200)
+      .json({ message: "Review added successfully", reviewID: reviewRef.id });
   } catch (error) {
     res.status(500).send("Failed to create review");
   }
@@ -447,34 +451,28 @@ app.get("/api/get-myreviews", async (req, res) => {
 
 // 리뷰 삭제 API
 app.delete("/api/delete-review", async (req, res) => {
-  const { uid } = req.body; 
+  const { reviewID } = req.body;
 
-  if(!uid){
-    res.status(400).send("Invalid request");
+  if (!reviewID) {
+    return res.status(400).json({ message: 'Invalid request, reviewID is required' });
   }
 
   try {
-    const reviewQuerySnapshot = await db
-      .collection("reviews")
-      .where("uid", "==", uid)
-      .get();
+    // Firestore에서 리뷰 문서 삭제
+    const reviewRef = db.collection('reviews').doc(reviewID);
+    const reviewDoc = await reviewRef.get();
 
-    if (reviewQuerySnapshot.empty) {
-      return res.status(404).json({ message: "리뷰를 찾을 수 없습니다." });
+    if (!reviewDoc.exists) {
+      return res.status(404).json({ message: 'Review not found' });
     }
 
-    // 문서 삭제 처리 (리뷰가 여러 개일 경우 첫 번째 문서만 삭제)
-    const batch = db.batch();
-    reviewQuerySnapshot.forEach(doc => {
-      batch.delete(doc.ref);  // 문서 삭제
-    });
+    await reviewRef.delete(); // 리뷰 삭제
 
-    await batch.commit();  // Firestore에 일괄 삭제 요청
-    return res.status(200);
+    res.status(200).json({ message: 'Review deleted successfully' });
   } catch (error) {
-    res.status(500);
+    console.error('Error deleting review: ', error);
+    res.status(500).json({ message: 'Failed to delete review', error });
   }
-
 });
 
 app.listen(3000, () => {
