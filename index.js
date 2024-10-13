@@ -373,30 +373,30 @@ app.get("/api/get-reviews", async (req, res) => {
   try {
     const reviewDocs = await db.collection("reviews").get();
 
-    if (reviewDocs.empty) {
-      return res.status(404).send("Review not found");
-    }
-
     const reviews = [];
 
-    for (const doc of reviewDocs.docs) {
-      const reviewData = doc.data();
-      const email = reviewData.email; // review에 email 필드가 있다고 가정
+    if (!reviewDocs.empty) {
+      for (const doc of reviewDocs.docs) {
+        const reviewData = doc.data();
+        const email = reviewData.email; // review에 email 필드가 있다고 가정
 
-      // users 컬렉션에서 해당 email 유저 정보 가져오기
-      const userDoc = await db.collection("users").doc(email).get();
-      let userData = {};
-      if (userDoc.exists) {
-        userData = userDoc.data(); // nickname과 photoURL 정보를 가져옴
+        // users 컬렉션에서 해당 email 유저 정보 가져오기
+        const userDoc = await db.collection("users").doc(email).get();
+        let userData = {};
+        if (userDoc.exists) {
+          userData = userDoc.data(); // nickname과 photoURL 정보를 가져옴
+        }
+
+        reviews.push({
+          id: doc.id, // 리뷰 문서 ID
+          nickname: userData.nickname, // 사용자 닉네임
+          photoURL: userData.photoURL, // 사용자 프로필 사진
+          ...reviewData, // 리뷰의 나머지 데이터
+        });
       }
-
-      reviews.push({
-        id: doc.id, // 리뷰 문서 ID
-        nickname: userData.nickname, // 사용자 닉네임
-        photoURL: userData.photoURL, // 사용자 프로필 사진
-        ...reviewData, // 리뷰의 나머지 데이터
-      });
     }
+
+    // 리뷰가 있든 없든, 빈 배열일 수도 있고 리뷰가 채워질 수도 있습니다.
     res.status(200).send(reviews);
   } catch (error) {
     console.log(`Error: ${error}`);
@@ -454,24 +454,91 @@ app.delete("/api/delete-review", async (req, res) => {
   const { reviewID } = req.body;
 
   if (!reviewID) {
-    return res.status(400).json({ message: 'Invalid request, reviewID is required' });
+    return res.status(400).send("Invalid request");
   }
 
   try {
     // Firestore에서 리뷰 문서 삭제
-    const reviewRef = db.collection('reviews').doc(reviewID);
+    const reviewRef = db.collection("reviews").doc(reviewID);
     const reviewDoc = await reviewRef.get();
 
     if (!reviewDoc.exists) {
-      return res.status(404).json({ message: 'Review not found' });
+      return res.status(404).json({ message: "Review not found" });
     }
 
     await reviewRef.delete(); // 리뷰 삭제
 
-    res.status(200).json({ message: 'Review deleted successfully' });
+    res.status(200).json({ message: "Review deleted successfully" });
   } catch (error) {
-    console.error('Error deleting review: ', error);
-    res.status(500).json({ message: 'Failed to delete review', error });
+    console.error("Error deleting review: ", error);
+    res.status(500).json({ message: "Failed to delete review", error });
+  }
+});
+
+// 북마크 추가/삭제 API
+app.post("/api/set-bookmark", async (req, res) => {
+  const { name, type, email, isBookmarked } = req.body;
+
+  if (!name || !type || !email || isBookmarked === undefined) {
+    return res.status(400).send("Invalid request: name, type, email, and isBookmarked are required.");
+  }
+
+  try {
+    const bookmarkRef = db.collection("bookmarks").where("name", "==", name).where("type", "==", type).where("email", "==", email);
+
+    const bookmarkSnapshot = await bookmarkRef.get();
+
+    // isBookmarked가 true인 경우 북마크 추가, false인 경우 북마크 삭제
+    if (isBookmarked) {
+      if (bookmarkSnapshot.empty) {
+        await db.collection("bookmarks").add({ name, type, email });
+        res.status(200).json({ isBookmarked: true });
+      } else {
+        res.status(200).json({ isBookmarked: true }); // 이미 북마크된 경우
+      }
+    } else {
+      if (!bookmarkSnapshot.empty) {
+        bookmarkSnapshot.forEach(doc => doc.ref.delete());
+        res.status(200).json({ isBookmarked: false }); // 북마크 삭제 완료
+      } else {
+        res.status(200).json({ isBookmarked: false }); // 이미 북마크가 없는 경우
+      }
+    }
+  } catch (error) {
+    console.error("Error setting bookmark:", error);
+    res.status(500).json({ message: "Failed to set bookmark", error });
+  }
+});
+
+// 북마크 여부 확인 API
+app.post("/api/check-bookmarks", async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).send("Invalid request: email is required.");
+  }
+
+  try {
+    // Firestore에서 해당 이메일로 북마크된 항목 조회
+    const bookmarkQuery = await db
+      .collection("bookmarks")
+      .where("email", "==", email)
+      .get();
+
+    if (bookmarkQuery.empty) {
+      return res.status(200).json({ bookmarks: [] }); // 북마크가 없는 경우 빈 배열 반환
+    }
+
+    // 북마크된 항목들 추출
+    const bookmarks = bookmarkQuery.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    res.status(200).json({ bookmarks });
+  } catch (error) {
+    console.error("Error fetching bookmarks:", error);
+    res.status(500).json({ message: "Failed to fetch bookmarks", error });
   }
 });
 
