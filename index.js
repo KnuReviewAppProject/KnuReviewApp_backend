@@ -542,6 +542,39 @@ app.post("/api/check-bookmarks", async (req, res) => {
   }
 });
 
+// 서버에서 북마크 데이터를 가져오는 API
+app.post("/api/get-bookmarks", async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).send("Invalid request: email is required.");
+  }
+
+  try {
+    const bookmarkDocs = await db
+      .collection("bookmarks")
+      .where("email", "==", email) // 해당 이메일의 북마크 조회
+      .get();
+
+    if (bookmarkDocs.empty) {
+      return res.status(200).json([]); // 북마크가 없으면 빈 배열 반환
+    }
+
+    const bookmarks = [];
+    bookmarkDocs.forEach(doc => {
+      bookmarks.push({
+        id: doc.id, // Firestore 문서 ID
+        ...doc.data(), // 북마크 데이터
+      });
+    });
+
+    res.status(200).json(bookmarks);
+  } catch (error) {
+    console.error("Error fetching bookmarks:", error);
+    res.status(500).json({ message: "Failed to fetch bookmarks", error });
+  }
+});
+
 app.listen(3000, () => {
   console.log("Server is running on port 3000");
 });
