@@ -480,7 +480,7 @@ app.post("/api/set-bookmark", async (req, res) => {
   const { name, type, email, isBookmarked } = req.body;
 
   if (!name || !type || !email || isBookmarked === undefined) {
-    return res.status(400).send("Invalid request: name, type, email, and isBookmarked are required.");
+    return res.status(400).send("Invalid request");
   }
 
   try {
@@ -515,7 +515,7 @@ app.post("/api/check-bookmarks", async (req, res) => {
   const { email } = req.body;
 
   if (!email) {
-    return res.status(400).send("Invalid request: email is required.");
+    return res.status(400).send("Invalid request");
   }
 
   try {
@@ -547,7 +547,7 @@ app.post("/api/get-bookmarks", async (req, res) => {
   const { email } = req.body;
 
   if (!email) {
-    return res.status(400).send("Invalid request: email is required.");
+    return res.status(400).send("Invalid request");
   }
 
   try {
@@ -572,6 +572,31 @@ app.post("/api/get-bookmarks", async (req, res) => {
   } catch (error) {
     console.error("Error fetching bookmarks:", error);
     res.status(500).json({ message: "Failed to fetch bookmarks", error });
+  }
+});
+
+// 북마크 삭제 API
+app.delete("/api/delete-bookmark/:id", async (req, res) => {
+  const { id } = req.params; // 요청된 id
+
+  if (!id) {
+    return res.status(400).send("Invalid request");
+  }
+
+  try {
+    // Firestore에서 해당 id의 문서를 삭제
+    const bookmarkRef = db.collection("bookmarks").doc(id);
+    const doc = await bookmarkRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).send("Bookmark not found");
+    }
+
+    await bookmarkRef.delete(); // 문서 삭제
+    res.status(200).json({ message: "Bookmark deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting bookmark:", error);
+    res.status(500).json({ message: "Failed to delete bookmark", error });
   }
 });
 
