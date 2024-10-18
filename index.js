@@ -176,7 +176,7 @@ app.post("/api/login", async (req, res) => {
   const user = await admin.auth().getUser(uid);
 
   if (!user) {
-    return res.status(401).send("User not found");
+    return res.status(401).json({ message: "User not found" });
   }
 
   const idToken = await admin.auth().createCustomToken(uid);
@@ -309,7 +309,7 @@ app.get("/api/getRestaurants", async (req, res) => {
       options: item.options,
       businessHours: item.businessHours,
     }));
-    res.status(200).send({ results: filteredData });
+    res.status(200).json({ results: filteredData });
   } else {
     res.status(404).json({ error: "No results found" });
   }
