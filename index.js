@@ -170,7 +170,7 @@ app.post("/api/login", async (req, res) => {
   const { uid } = req.body;
 
   if (!uid) {
-    return res.status(400).send("Invalid request");
+    return res.status(400).json({ message: "Invalid request" });
   }
 
   const user = await admin.auth().getUser(uid);
@@ -188,13 +188,15 @@ app.post("/api/login", async (req, res) => {
       ? user.photoURL
       : null; // 정확한 null 처리
 
-  res.status(200).send({
-    accessToken: idToken,
-    uid: user_uid,
-    email: email,
-    nickname: nickname,
-    photoURL: photoURL,
-  });
+      return res.status(200).json({
+        data: {
+          accessToken: idToken,
+          uid: user_uid,
+          email: email,
+          nickname: nickname,
+          photoURL: photoURL,
+        },
+      });
 });
 
 // 회원탈퇴 api
