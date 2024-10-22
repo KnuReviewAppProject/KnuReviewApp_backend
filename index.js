@@ -91,44 +91,44 @@ app.post("/api/verify-code", async (req, res) => {
 
   try {
     // Firestore에서 이메일로 인증 코드와 JWT 조회
-  const verificationPrm = db.collection("verifications").doc(email);
-  const verificationDoc = await verificationPrm.get();
+    const verificationPrm = db.collection("verifications").doc(email);
+    const verificationDoc = await verificationPrm.get();
 
-  const mailRef = db.collection("mail").doc(messageID);
-  const mailDoc = await mailRef.get();
+    const mailRef = db.collection("mail").doc(messageID);
+    const mailDoc = await mailRef.get();
 
-  if (!verificationDoc.exists || !mailDoc.exists) {
-    return res.status(401).json({ message: "Verification data not found" });
-  }
+    if (!verificationDoc.exists || !mailDoc.exists) {
+      return res.status(401).json({ message: "Verification data not found" });
+    }
 
-  const savedData = verificationDoc.data();
-  const savedVerificationCode = savedData.verificationCode;
-  const savedToken = savedData.token;
-  const timestamp = savedData.timestamp.toMillis(); // Firestore의 Timestamp 객체를 밀리초로 변환
+    const savedData = verificationDoc.data();
+    const savedVerificationCode = savedData.verificationCode;
+    const savedToken = savedData.token;
+    const timestamp = savedData.timestamp.toMillis(); // Firestore의 Timestamp 객체를 밀리초로 변환
 
-  const currentTime = Date.now();
-  if (currentTime - timestamp > VERIFICATION_TIMEOUT) {
-    // 인증 코드가 5분을 초과했으면 만료 처리
+    const currentTime = Date.now();
+    if (currentTime - timestamp > VERIFICATION_TIMEOUT) {
+      // 인증 코드가 5분을 초과했으면 만료 처리
+      await verificationDoc.ref.delete();
+      await mailDoc.ref.delete();
+      return res.status(402).json({ message: "Verification code expired" });
+    }
+
+    // 제출된 JWT와 Firestore에 저장된 JWT 비교
+    if (token != savedToken) {
+      return res.status(403).json({ message: "Invalid token" });
+    }
+
+    if (code != savedVerificationCode) {
+      return res.status(404).json({ message: "Invalid verification code" });
+    }
+
+    // 인증이 완료되면 Firestore에서 인증 데이터를 삭제
     await verificationDoc.ref.delete();
+
     await mailDoc.ref.delete();
-    return res.status(402).json({ message: "Verification code expired" });
-  }
 
-  // 제출된 JWT와 Firestore에 저장된 JWT 비교
-  if (token != savedToken) {
-    return res.status(403).json({ message: "Invalid token" });
-  }
-
-  if (code != savedVerificationCode) {
-    return res.status(404).json({ message: "Invalid verification code" });
-  }
-
-  // 인증이 완료되면 Firestore에서 인증 데이터를 삭제
-  await verificationDoc.ref.delete();
-
-  await mailDoc.ref.delete(); 
-
-  res.status(200).json({ token: token });
+    res.status(200).json({ token: token });
   } catch (error) {
     console.error("Error in verify-code:", error);
     res.status(500).json({ message: "Internal Server Error" });
@@ -146,11 +146,11 @@ app.post("/api/verify-nickname", async (req, res) => {
   try {
     const userDoc = db.collection("users");
     const nicknameQuery = await userDoc.where("nickname", "==", nickname).get();
-  
+
     if (!nicknameQuery.empty) {
       return res.status(401).json({ message: "Nickname already exists" });
     }
-  
+
     res.status(200).json({ message: "Nickname is available" });
   } catch (error) {
     console.error("Error in verify-nickname:", error);
@@ -168,26 +168,26 @@ app.post("/api/register", async (req, res) => {
 
   try {
     const account = await admin
-    .auth()
-    .getUserByEmail(email)
-    .catch((err) => null);
+      .auth()
+      .getUserByEmail(email)
+      .catch((err) => null);
 
-  if (account) {
-    return res.status(401).send("Email already exists");
-  }
+    if (account) {
+      return res.status(401).send("Email already exists");
+    }
 
-  const user = await admin.auth().createUser({
-    email: email,
-    password: password,
-    displayName: nickname,
-  });
+    const user = await admin.auth().createUser({
+      email: email,
+      password: password,
+      displayName: nickname,
+    });
 
-  await db.collection("users").doc(email).set({
-    nickname: nickname,
-    photoURL: null,
-  });
+    await db.collection("users").doc(email).set({
+      nickname: nickname,
+      photoURL: null,
+    });
 
-  res.status(200).json({ user: user });
+    res.status(200).json({ user: user });
   } catch (error) {
     console.error("Error in register:", error);
     res.status(500).json({ message: "Internal Server Error" });
@@ -259,7 +259,7 @@ app.post("/api/edit-profile", async (req, res) => {
   const { uid, email, nickname, password } = req.body;
 
   if (!uid || !email) {
-    return res.status(400).send("Invalid request");
+    return res.status(400).json({ message: "Invalid request" });
   }
 
   try {
@@ -275,9 +275,10 @@ app.post("/api/edit-profile", async (req, res) => {
       });
     }
 
-    res.status(200).send("Profile updated successfully");
+    res.status(200).json({ message: "Profile updated successfully" });
   } catch (error) {
-    res.status(500).send("Failed to update profile");
+    console.error("Error in edit-profile:", error);
+    res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
@@ -289,38 +290,35 @@ app.post("/api/edit-profile-image", async (req, res) => {
     return res.status(400).send("Invalid request");
   }
 
-  // if(!imageURL){
-  //   return res.status(404).send("imageURL is not exist");
-  // }
-
   try {
     if (imageURL == null) {
       const userDocRef = db.collection("users").doc(email);
-      admin
+      await admin
         .auth()
         .updateUser(uid, {
           photoURL: imageURL,
         })
-        .then(async () => {
-          await userDocRef.update({ photoURL: imageURL });
+        .then(() => {
+          userDocRef.update({ photoURL: imageURL });
         });
 
-      res.status(200).send("Profile updated successfully");
+      res.status(200).json({ message: "Profile updated successfully" });
     } else {
       const userDocRef = db.collection("users").doc(email);
-      admin
+      await admin
         .auth()
         .updateUser(uid, {
           photoURL: imageURL,
         })
-        .then(async () => {
-          await userDocRef.update({ photoURL: imageURL });
+        .then(() => {
+          userDocRef.update({ photoURL: imageURL });
         });
 
-      res.status(200).send("Profile updated successfully");
+      res.status(200).json({ message: "Profile updated successfully" });
     }
   } catch (error) {
-    res.status(500).send("Failed to update profile");
+    console.error("Error in edit-profile-image:", error);
+    res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
