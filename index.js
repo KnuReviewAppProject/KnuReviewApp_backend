@@ -638,6 +638,30 @@ app.delete("/api/delete-bookmark/:id", async (req, res) => {
   }
 });
 
+// 리뷰 개수 가져오기 API
+app.get("/api/review-count", async (req, res) => {
+  const { name } = req.query;
+
+  if (!name) {
+    return res.status(400).json({ message: "Invalid request" });
+  }
+
+  try {
+    // Firestore에서 name 필드가 일치하는 리뷰를 조회
+    const reviewDocs = await db
+      .collection("reviews")
+      .where("name", "==", name)
+      .get();
+
+    const reviewCount = reviewDocs.size; // 리뷰 개수 가져오기
+
+    res.status(200).json({ count: reviewCount });
+  } catch (error) {
+    console.error("Error fetching review count:", error);
+    res.status(500).json({ message: "Failed to fetch review count" });
+  }
+});
+
 app.listen(3000, () => {
   console.log("Server is running on port 3000");
 });
