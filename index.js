@@ -453,8 +453,9 @@ app.get("/api/get-myreviews", async (req, res) => {
       .where("email", "==", email)
       .get();
 
+    // 리뷰가 없을 경우 빈 배열 반환
     if (reviewDocs.empty) {
-      return res.status(404).send("No reviews found for the user");
+      return res.status(200).send([]);
     }
 
     const myUserReviews = [];
