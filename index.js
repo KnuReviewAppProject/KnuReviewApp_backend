@@ -19,7 +19,6 @@ const JWT_SECRET = "jwt_secret_0b0000_1111";
 // 이메일 중복 여부 판단 api
 app.post("/api/verify-email", async (req, res) => {
   const { email } = req.body;
-
   if (!email) {
     return res.status(400).json({ message: "Invalid request" });
   }
@@ -241,16 +240,45 @@ app.post("/api/delete-account", async (req, res) => {
     return res.status(400).send("Invalid request");
   }
 
-  await admin.auth().deleteUser(uid);
+  try {
+    await admin.auth().deleteUser(uid);
 
-  const userDocRef = db.collection("users").doc(email);
-  const userDoc = await userDocRef.get();
+    // Firestore의 users 컬렉션에서 유저 문서 삭제
+    const userDocRef = db.collection("users").doc(email);
+    const userDoc = await userDocRef.get();
 
-  if (userDoc.exists) {
-    await userDocRef.delete();
-    res.sendStatus(200);
-  } else {
-    res.status(401).send("User not found");
+    if (userDoc.exists) {
+      await userDocRef.delete();
+    } else {
+      return res.status(404).send("User not found");
+    }
+
+    // Firestore의 reviews 컬렉션에서 해당 이메일과 관련된 리뷰 문서 삭제
+    const reviewDocs = await db
+      .collection("reviews")
+      .where("email", "==", email)
+      .get();
+    reviewDocs.forEach(async (doc) => {
+      await doc.ref.delete();
+    });
+
+    // Firestore의 bookmarks 컬렉션에서 해당 이메일과 관련된 북마크 문서 삭제
+    const bookmarkDocs = await db
+      .collection("bookmarks")
+      .where("email", "==", email)
+      .get();
+    bookmarkDocs.forEach(async (doc) => {
+      await doc.ref.delete();
+    });
+
+    res
+      .status(200)
+      .json({ message: "Account and associated data deleted successfully" });
+  } catch (error) {
+    console.error("Error in delete-account:", error);
+    res
+      .status(500)
+      .json({ message: "Failed to delete account and associated data" });
   }
 });
 
